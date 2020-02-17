@@ -1,0 +1,3 @@
+[submodule "wavelib"]
+	path = wavelib
+	url = https://gitlab.com/rafat.hsn/wavelib.git
