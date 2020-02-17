@@ -35,8 +35,6 @@ language.settings.xml
 *.tcl
 
 #wdenoise-specific
-examples/
-!examples/*.c
-!examples/*.h
-!examples/CMakeLists.txt
+examples/denoised*
+examples/*.png
 *.stackdump
