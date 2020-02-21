@@ -578,7 +578,108 @@ void ebayesthresh_wavelet2(double *data, int rows,int cols, int J, char *wname,c
 	free(muhat);
 	free(lnoise);
 	wt2_free(wt);
+}
+
+static void getPTSR(wt_object wt,double *ptsr) {
+	int i,k,J,iter;
+	double sum,max,fval;
+	J = wt->J;
+
+	iter = wt->length[0];
+
+	for(i = 0; i < J;++i) {
+		sum = 0.0;
+		max = 0.0;
+		for(k = 0; k < wt->length[i+1];++k) {
+			fval = fabs(wt->output[iter+k]);
+			sum += fval;
+			max = max < fval ? fval : max;
+		}
+
+		ptsr[i] = max / sum;
+
+		iter += wt->length[i+1];
 	}
+
+}
+
+static int getDLevel(double *ptsr, int J) {
+	int level,i;
+
+	double SAFL;
+
+	SAFL = 0.2;
+	level = 0;
+	for(i = J-1; i >= 0; --i) {
+		if (ptsr[i] <= SAFL) {
+			level++;
+		} else {
+			return level;
+		}
+	}
+
+	return level;
+}
+
+void safshrink(double *signal,int N,const char *wname,const char *method,const char *ext,double *denoised) {
+	wave_object wave;
+	wt_object wt;
+	int filt_len, J, level, i;
+	double *ptsr;
+	double *thlo,*thhi,*mu,*sigma;
+
+	filt_len = wave->filtlength;
+
+	J = (int) (log((double)N / ((double)filt_len - 1.0)) / log(2.0));
+
+	wave = wave_init(wname);
+	wt = wt_init(wave,method,N,J);
+
+	if(!strcmp(method,"dwt")) {
+		setDWTExtension(wt,ext);
+		dwt(wt,signal);
+	} else if(!strcmp(method,"swt")) {
+		swt(wt,signal);
+	} else {
+		printf("Acceptable WT methods are - dwt,swt and modwt\n");
+		exit(-1);
+	}
+
+	ptsr = (double*)calloc(J,sizeof(double));
+
+	// get PTSR
+
+	getPTSR(wt,ptsr);
+
+	// get Decomposition level
+	level = getDLevel(ptsr,J);
+
+	// Calculate Thresholds
+
+	thhi = (double*)calloc(level,sizeof(double));
+	thlo = (double*)calloc(level,sizeof(double));
+	mu = (double*)calloc(level,sizeof(double));
+	sigma = (double*)calloc(level,sizeof(double));
+
+	for(i = level; i > 0;--i) {
+
+	}
+
+
+	if(!strcmp(method,"dwt")) {
+		idwt(wt,denoised);
+	} else if(!strcmp(method,"swt")) {
+		iswt(wt,denoised);
+	}
+
+	free(ptsr);
+	free(thhi);
+	free(thlo);
+	free(mu);
+	free(sigma);
+	wave_free(wave);
+	wt_free(wt);
+}
 
 void minimaxshrink(double *signal,int N,int J,const char *wname,const char *method,const char *ext,const char *thresh,const char *level,double *denoised) {
 	int iter,i,dlen,dwt_len,sgn,it;
