@@ -580,23 +580,34 @@ void ebayesthresh_wavelet2(double *data, int rows,int cols, int J, char *wname,c
 	wt2_free(wt);
 }
 
-static void getPTSR(wt_object wt,double *ptsr) {
+static void getPTSR(wt_object wt,double *ptsr,double *ptsrl,double *ptsrh,double *pl,double *ph) {
 	int i,k,J,iter;
-	double sum,max,fval;
+	double sum,max,fval,lsum,lmax,hsum,hmax;
 	J = wt->J;
 
 	iter = wt->length[0];
 
 	for(i = 0; i < J;++i) {
-		sum = 0.0;
-		max = 0.0;
+		sum = hsum = lsum = 0.0;
+		max = lmax = hmax = 0.0;
 		for(k = 0; k < wt->length[i+1];++k) {
 			fval = fabs(wt->output[iter+k]);
 			sum += fval;
 			max = max < fval ? fval : max;
+			if (wt->output[iter+k] < 0) {
+				lsum += fval;
+				lmax = lmax < fval ? fval : lmax;
+			} else {
+				hmax = hmax < fval ? fval : hmax;
+			}
 		}
+		hsum = sum - lsum;
 
 		ptsr[i] = max / sum;
+		pl[i] = lmax;
+		ph[i] = hmax;
+		ptsrl[i] = lmax / lsum;
+		ptsrh[i] = hmax / hsum;
 
 		iter += wt->length[i+1];
 	}
@@ -624,9 +635,10 @@ static int getDLevel(double *ptsr, int J) {
 void safshrink(double *signal,int N,const char *wname,const char *method,const char *ext,double *denoised) {
 	wave_object wave;
 	wt_object wt;
-	int filt_len, J, level, i;
-	double *ptsr;
-	double *thlo,*thhi,*mu,*sigma;
+	int filt_len, J, level, i, k, iter,temp,ji;
+	double *ptsr,*ptsrl,*ptsrh,*pl,*ph;
+	double *thlo,*thhi;
+	double mu,sigma,msum,klmin,khmin,kl,kh,srl,srh,lambdal,lambdah;
 
 	filt_len = wave->filtlength;
 
@@ -646,22 +658,74 @@ void safshrink(double *signal,int N,const char *wname,const char *method,const c
 	}
 
 	ptsr = (double*)calloc(J,sizeof(double));
+	ptsrl = (double*)calloc(J,sizeof(double));
+	ptsrh = (double*)calloc(J,sizeof(double));
+	pl = (double*)calloc(J,sizeof(double));
+	ph = (double*)calloc(J,sizeof(double));
 
 	// get PTSR
 
-	getPTSR(wt,ptsr);
+	getPTSR(wt,ptsr,ptsrl,ptsrh,pl,ph);
+
+	wt_free(wt);
 
 	// get Decomposition level
 	level = getDLevel(ptsr,J);
+
+	// Get the WT up to decomposition level 'level'
+
+	wt = wt_init(wave,method,N,level);
 
 	// Calculate Thresholds
 
 	thhi = (double*)calloc(level,sizeof(double));
 	thlo = (double*)calloc(level,sizeof(double));
-	mu = (double*)calloc(level,sizeof(double));
-	sigma = (double*)calloc(level,sizeof(double));
 
-	for(i = level; i > 0;--i) {
+	iter = wt->outlength;
+
+	for(i = 1; i <= level;++i) {
+		ji = J - i;
+		iter -= wt->length[ji];
+		msum = 0.0;
+
+		for(k = 0; k < wt->length[ji];++k) {
+			msum += wt->output[iter+k];
+		}
+
+		mu = msum/wt->length[ji];
+		sigma = 0.0;
+
+		for(k = 0; k < wt->length[ji];++k) {
+			temp = wt->output[iter+k] - mu;
+			sigma += (temp*temp);
+		}
+
+		sigma = wt->length[ji] > 1 ? sigma/(wt->length[ji]-1) : sigma;
+
+		sigma = sqrt(sigma);
+
+		klmin = (mu - pl[ji]) / sigma;
+		khmin = (ph[ji] - mu) / sigma;
+
+		if (ptsr[ji] <= 0.01) {
+			kl = klmin;
+			kh = khmin;
+		} else {
+			srl = i < J ? (ptsrl[ji] + ptsrl[ji-1])/2 : ptsrl[ji]/2;
+			srh = i < J ? (ptsrh[ji] + ptsrh[ji-1])/2 : ptsrh[ji]/2;
+
+			kl = klmin * (srl - ptsrl[ji]) / srl;
+			kh = khmin * (srh - ptsrh[ji]) / srh;
+		}
+
+		lambdal = mu - kl * sigma;
+		lambdah = mu + kh * sigma;
+
+		for(k = 0; k < wt->length[ji];++k) {
+			if (wt->output[iter+k] >= lambdal && wt->output[iter+k] <= lambdah) {
+				wt->output[iter+k] = 0.0;
+			}
+		}
 
 	}
 
@@ -673,10 +737,12 @@ void safshrink(double *signal,int N,const char *wname,const char *method,const c
 	}
 
 	free(ptsr);
+	free(ptsrl);
+	free(ptsrh);
+	free(pl);
+	free(ph);
 	free(thhi);
 	free(thlo);
-	free(mu);
-	free(sigma);
 	wave_free(wave);
 	wt_free(wt);
 }
