@@ -1,5 +1,13 @@
 # wdenoise
-Wavelet Denoising in ANSI C using empirical bayes thresholding and a host of other thresholding methods. _[Documentation is available here](https://github.com/rafat/wdenoise/wiki)_
+Wavelet Denoising in ANSI C using empirical bayes thresholding and a host of other thresholding methods.
+
+|**[wdenoise object](https://github.com/rafat/wdenoise/wiki/wdenoise)**| WDenoise Object, Parameters and Functions|
+|:--------------------------------------------------------|:-------------------------------------|
+|**[Wdenoise 1D Example using EBayesThresh](https://github.com/rafat/wdenoise/wiki/Example-Code-1-:-wdenoise-(EBayesThresh))**| Example Code 1 : wdenoise (EBayesThresh)|
+|**[Wdenoise 1D Example using fdrshrink](https://github.com/rafat/wdenoise/wiki/Example-Code-2-:-wdenoise)**| Example Code 2 : wdenoise|
+|**[Image Denoising](https://github.com/rafat/wdenoise/wiki/Example-Code-3-:-Image-Denoising)**| Example Code 3 : Image Denoising using EBayesThresh and Visushrink|
+
+_[Full Documentation is available here](https://github.com/rafat/wdenoise/wiki)_
 
 ## Dependencies
 
